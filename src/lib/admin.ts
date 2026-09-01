@@ -10,8 +10,8 @@
  * list more than one email if more people should have admin access later.
  */
 export const ADMIN_EMAILS: string[] = [
-  'qfazdigital@gmail.com',
-  'pasekid@gmail.com',
+  'sekilasupdate.com@gmail.com',
+  'sekilasupdate.com@gmail.com',
 ];
 
 export function isAdmin(email: string | null | undefined): boolean {
