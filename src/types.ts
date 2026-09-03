@@ -50,6 +50,11 @@ export interface Article {
   authorUid?: string;
   /** Kota/dateline berita, mis. "SURABAYA". Dibawa dari sistem lama. */
   city?: string;
+  /**
+   * Kata kunci fokus untuk panel Skor SEO. Ikut disimpan supaya penilaian
+   * naskah tetap sama waktu beritanya dibuka lagi untuk disunting.
+   */
+  focusKeyphrase?: string;
   createdAt: string; // ISO string
   views: number;
   likes: number;

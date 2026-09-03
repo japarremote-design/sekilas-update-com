@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Plus, Sparkles, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { SeoPanel } from './SeoPanel';
 import {
   Article,
   ArticleStatus,
@@ -42,6 +43,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   // Kolomnya tetap bisa diubah kalau tulisan itu memang perlu byline pribadi.
   const [author, setAuthor] = useState(articleToEdit?.author || 'Redaksi SekilasUpdate.com');
   const [city, setCity] = useState(articleToEdit?.city || '');
+  const [kataKunci, setKataKunci] = useState(articleToEdit?.focusKeyphrase || '');
   const [tagsInput, setTagsInput] = useState(articleToEdit?.tags ? articleToEdit.tags.join(', ') : 'Nasional, Berita');
   const [isHero, setIsHero] = useState(articleToEdit?.isHero || false);
   const [isTrending, setIsTrending] = useState(articleToEdit?.isTrending || false);
@@ -129,6 +131,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           imageUrl: defaultImg,
           author: author.trim() || 'Redaksi',
           city: city.trim(),
+          focusKeyphrase: kataKunci.trim(),
           tags,
           isHero,
           isTrending,
@@ -148,6 +151,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           author: author.trim() || 'Redaksi',
           authorUid: currentUser?.uid,
           city: city.trim(),
+          focusKeyphrase: kataKunci.trim(),
           createdAt: new Date().toISOString(),
           views: 1,
           likes: 0,
@@ -211,6 +215,24 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
               placeholder="Contoh: Gubernur Resmikan Proyek Infrastruktur..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-[#141B34] focus:ring-1 focus:ring-[#141B34] outline-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Kata Kunci Fokus
+              <span className="font-normal text-gray-400 ml-1">— dipakai panel Skor SEO di bawah</span>
+            </label>
+            <input
+              type="text"
+              value={kataKunci}
+              onChange={(e) => setKataKunci(e.target.value)}
+              placeholder="Contoh: ambulans hibah BRI"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-[#141B34] focus:ring-1 focus:ring-[#141B34] outline-none"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              Satu frasa yang paling mewakili berita ini — kira-kira yang diketik
+              orang di Google waktu mencari kabar seperti ini.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -413,6 +435,21 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
               Aktifkan tayang (tampil ke pembaca)
             </label>
           </div>
+
+          {/*
+            Panel Skor SEO ditaruh tepat sebelum tombol simpan — di titik itulah
+            penulis berhenti mengetik dan memutuskan naskahnya sudah siap atau
+            belum, jadi di situ pula peringatannya paling mungkin dibaca.
+          */}
+          <SeoPanel
+            judul={title}
+            kataKunci={kataKunci}
+            ringkasan={excerpt}
+            isi={content}
+            urlGambar={imageUrl}
+            kota={city}
+            tag={tagsInput.split(',').map(t => t.trim()).filter(Boolean)}
+          />
 
           <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
             <button
