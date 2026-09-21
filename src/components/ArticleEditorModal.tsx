@@ -444,6 +444,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           <SeoPanel
             judul={title}
             kataKunci={kataKunci}
+            kategori={category}
             ringkasan={excerpt}
             isi={content}
             urlGambar={imageUrl}

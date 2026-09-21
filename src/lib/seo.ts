@@ -168,6 +168,33 @@ export function hitungSukuKata(kata: string): number {
   return gugus ? gugus.length : 1;
 }
 
+/**
+ * Pecah isian kolom kata kunci jadi daftar frasa.
+ *
+ * Redaksi terbiasa mengisi kolom ini seperti kolom tag: beberapa frasa
+ * dipisah koma. Dulu seluruh isian diperlakukan sebagai SATU frasa, sehingga
+ * "Bantuan alsintan Jember, Khusnul Khuluk DPRD Jatim, ..." harus muncul utuh
+ * lengkap dengan komanya — mustahil, dan hampir semua pemeriksaan SEO merah
+ * padahal naskahnya sudah benar.
+ *
+ * Sekarang: frasa PERTAMA adalah kata kunci utama (dasar semua pemeriksaan
+ * posisi & kepadatan), frasa berikutnya kata kunci tambahan. Pemisah yang
+ * diterima: koma, titik koma, atau baris baru. Titik di ujung frasa dibuang,
+ * frasa kembar (beda huruf besar-kecil) dihitung sekali.
+ */
+export function pecahKataKunci(teks: string): string[] {
+  const sudah = new Set<string>();
+  return teks
+    .split(/[,;\n]+/)
+    .map(f => f.trim().replace(/\.+$/, '').trim())
+    .filter(f => {
+      const n = normalkan(f);
+      if (!n || sudah.has(n)) return false;
+      sudah.add(n);
+      return true;
+    });
+}
+
 /** Apakah frasa utuh muncul di dalam teks (setelah dinormalkan). */
 function memuatFrasa(teks: string, frasa: string): boolean {
   const t = ` ${normalkan(teks)} `;
@@ -213,7 +240,12 @@ function tingkatDariSkor(skor: number): TingkatSeo {
 }
 
 export function analisisSeo(masukan: MasukanAnalisis): HasilAnalisis {
-  const { judul, kataKunci, ringkasan, isi, urlGambar, kota, tag } = masukan;
+  const { judul, ringkasan, isi, urlGambar, kota, tag } = masukan;
+
+  const daftarKunci = pecahKataKunci(masukan.kataKunci);
+  /** Kata kunci utama — frasa pertama di kolom kata kunci. */
+  const kataKunci = daftarKunci[0] ?? '';
+  const kunciTambahan = daftarKunci.slice(1);
 
   const hasil: Pemeriksaan[] = [];
   const tambah = (
@@ -242,7 +274,7 @@ export function analisisSeo(masukan: MasukanAnalisis): HasilAnalisis {
       'Semua kata kuncinya ada di judul tapi terpisah-pisah. Kalau bisa, rangkai jadi satu frasa utuh.');
   } else {
     tambah('kunci-judul', 'seo', 'Kata kunci di judul', 'buruk', 3,
-      `Judul belum memuat "${kataKunci}". Ini yang paling menentukan — usahakan masuk.`);
+      `Judul belum memuat kata kunci utama "${kataKunci}". Ini yang paling menentukan — usahakan masuk.`);
   }
 
   // 2. Posisi kata kunci. Makin ke depan makin cepat terbaca pembaca dan mesin.
@@ -360,6 +392,23 @@ export function analisisSeo(masukan: MasukanAnalisis): HasilAnalisis {
       tambah('kepadatan', 'seo', 'Kepadatan kata kunci', 'buruk', 2,
         `${kepadatan.toFixed(1)}% — terlalu padat. Ini terbaca sebagai penjejalan kata kunci dan bisa merugikan.`);
     }
+  }
+
+  // 8b. Kata kunci tambahan — frasa kedua dan seterusnya. Cukup disebut di
+  //     mana saja (judul, ringkasan, atau isi); tidak dituntut posisi tertentu.
+  //     Bobotnya kecil dan paling buruk "kurang", supaya tidak pernah menahan
+  //     lampu hijau — yang menentukan tetap kata kunci utama.
+  if (kunciTambahan.length > 0) {
+    const semuaTeks = `${judul} ${ringkasan} ${isi}`;
+    const belumAda = kunciTambahan.filter(f => !memuatSemuaKata(semuaTeks, f));
+    const adaCount = kunciTambahan.length - belumAda.length;
+    const tingkatTambahan: TingkatSeo = belumAda.length === 0
+      ? 'baik'
+      : adaCount >= kunciTambahan.length / 2 ? 'cukup' : 'kurang';
+    tambah('kunci-tambahan', 'seo', 'Kata kunci tambahan', tingkatTambahan, 1,
+      belumAda.length === 0
+        ? `Semua ${kunciTambahan.length} kata kunci tambahan muncul di naskah.`
+        : `${adaCount} dari ${kunciTambahan.length} kata kunci tambahan muncul. Belum ada: ${belumAda.map(f => `"${f}"`).join(', ')}.`);
   }
 
   // 9. Panjang naskah.

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, Gauge, BookOpen, Newspaper, Search } from 'lucide-react';
+import { ChevronDown, Gauge, BookOpen, Newspaper, Search, ClipboardCopy, Check } from 'lucide-react';
 import {
   analisisSeo, WARNA_TINGKAT,
-  type KelompokSeo, type MasukanAnalisis, type Pemeriksaan, type TingkatSeo,
+  type HasilAnalisis, type KelompokSeo, type MasukanAnalisis, type Pemeriksaan, type TingkatSeo,
 } from '../lib/seo';
 
 /**
@@ -33,8 +33,86 @@ const NAMA_KELOMPOK: Record<KelompokSeo, string> = {
 /** Urutan tampil: yang paling merah lebih dulu. */
 const URUTAN: Record<TingkatSeo, number> = { buruk: 0, kurang: 1, cukup: 2, baik: 3 };
 
-export const SeoPanel: React.FC<MasukanAnalisis> = (masukan) => {
+const LABEL_SALIN: Record<TingkatSeo, string> = {
+  buruk: 'MERAH', kurang: 'ORANYE', cukup: 'KUNING', baik: 'HIJAU',
+};
+
+/**
+ * Susun seluruh isi form + hasil analisis jadi satu teks polos, siap
+ * ditempel ke chat AI (Claude, ChatGPT, dll.) untuk dimintai optimasi.
+ * Urutan kolomnya sama dengan urutan di form supaya gampang dicocokkan
+ * waktu hasilnya disalin balik.
+ */
+function susunTeksSalin(masukan: MasukanAnalisis & { kategori?: string }, hasil: HasilAnalisis): string {
+  const terurut = [...hasil.pemeriksaan].sort(
+    (a, b) => URUTAN[a.tingkat] - URUTAN[b.tingkat] || b.bobot - a.bobot
+  );
+  const st = hasil.statistik;
+  const baris = [
+    'Tolong optimasi berita ini supaya skor SEO-nya naik. Jangan ubah kutipan langsung narasumber dan jangan menambah fakta yang tidak ada di naskah. Kembalikan hasilnya per kolom dengan urutan yang sama.',
+    '',
+    'Judul Berita:',
+    masukan.judul.trim() || '(kosong)',
+    '',
+    'Kata Kunci:',
+    masukan.kataKunci.trim() || '(kosong)',
+    '',
+    ...(masukan.kategori !== undefined ? ['Kategori:', masukan.kategori || '(kosong)', ''] : []),
+    'Ringkasan / Excerpt:',
+    masukan.ringkasan.trim() || '(kosong)',
+    '',
+    'Isi Berita Lengkap:',
+    masukan.isi.trim() || '(kosong)',
+    '',
+    'Tag:',
+    masukan.tag.join(', ') || '(kosong)',
+    '',
+    `Gambar utama: ${masukan.urlGambar.trim() ? 'sudah terpasang' : 'belum ada'}`,
+    '',
+    '=== KONDISI SEO ===',
+    `Skor ${hasil.skor} (${WARNA_TINGKAT[hasil.tingkat].label}) — ` +
+      (Object.keys(NAMA_KELOMPOK) as KelompokSeo[])
+        .map(k => `${NAMA_KELOMPOK[k]} ${hasil.kelompok[k].skor}`).join(' · '),
+    ...(hasil.catatanTingkat ? [hasil.catatanTingkat] : []),
+    '',
+    ...terurut.map(p => `[${LABEL_SALIN[p.tingkat]}] ${p.judul} (${NAMA_KELOMPOK[p.kelompok]}): ${p.pesan}`),
+    '',
+    `${st.jumlahKata} kata · ${st.jumlahKalimat} kalimat · ${st.jumlahParagraf} paragraf · ` +
+      `${st.kataPerKalimat} kata/kalimat · kepadatan ${st.kepadatanKunci}% · pasif ${st.persenPasif}% · ` +
+      `kalimat panjang ${st.persenKalimatPanjang}% · transisi ${st.persenTransisi}%`,
+  ];
+  return baris.join('\n');
+}
+
+/** Salin ke clipboard, dengan cadangan untuk browser lama / non-HTTPS. */
+async function salinKeClipboard(teks: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(teks);
+      return true;
+    }
+  } catch {
+    /* lanjut ke cara lama */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = teks;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+export const SeoPanel: React.FC<MasukanAnalisis & { kategori?: string }> = (masukan) => {
   const [terbuka, setTerbuka] = useState(true);
+  const [statusSalin, setStatusSalin] = useState<'diam' | 'tersalin' | 'gagal'>('diam');
 
   // Analisis berjalan tiap ketikan, jadi hasilnya di-cache selama masukannya
   // belum berubah — tanpa ini, mengetik di naskah panjang terasa tersendat.
@@ -48,6 +126,12 @@ export const SeoPanel: React.FC<MasukanAnalisis> = (masukan) => {
     (a, b) => URUTAN[a.tingkat] - URUTAN[b.tingkat] || b.bobot - a.bobot
   );
   const perluDibenahi = hasil.pemeriksaan.filter(p => p.tingkat === 'buruk' || p.tingkat === 'kurang').length;
+
+  const salin = async () => {
+    const ok = await salinKeClipboard(susunTeksSalin(masukan, hasil));
+    setStatusSalin(ok ? 'tersalin' : 'gagal');
+    window.setTimeout(() => setStatusSalin('diam'), 2500);
+  };
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
@@ -90,6 +174,30 @@ export const SeoPanel: React.FC<MasukanAnalisis> = (masukan) => {
 
         <ChevronDown className={`w-4 h-4 text-gray-500 flex-none transition-transform ${terbuka ? 'rotate-180' : ''}`} />
       </button>
+
+      {/* Salin semua isian + kondisi SEO sekali klik, untuk ditempel ke chat AI. */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 bg-white">
+        <span className="text-[10px] text-gray-500 leading-snug">
+          Salin judul, kata kunci, ringkasan, isi, tag, dan kondisi SEO untuk ditempel ke chat AI.
+        </span>
+        <button
+          type="button"
+          onClick={salin}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold flex-none border transition-colors cursor-pointer ${
+            statusSalin === 'tersalin'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+              : statusSalin === 'gagal'
+                ? 'bg-red-50 border-red-300 text-red-700'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {statusSalin === 'tersalin'
+            ? <><Check className="w-3.5 h-3.5" /> Tersalin</>
+            : statusSalin === 'gagal'
+              ? <>Gagal menyalin</>
+              : <><ClipboardCopy className="w-3.5 h-3.5" /> Salin untuk Optimasi</>}
+        </button>
+      </div>
 
       {terbuka && (
         <div className="border-t border-gray-100">
