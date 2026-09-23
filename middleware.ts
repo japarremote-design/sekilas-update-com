@@ -110,18 +110,78 @@ function toWhatsAppFriendlyImage(url: string): { url: string; width: number; hei
   return { url, width, height };
 }
 
-async function fetchArticle(articleId: string) {
+/*
+ * Cache kecil di dalam isolate edge.
+ *
+ * Tanpa ini, setiap pembaca halaman artikel memicu satu permintaan ke Firestore
+ * sebelum HTML-nya dikirim — dan itu terasa sebagai jeda. Vercel memakai ulang
+ * isolate yang sama untuk permintaan berikutnya di wilayah yang sama, jadi
+ * Map sederhana ini sudah cukup menyerap lonjakan pembaca satu berita viral.
+ * Isinya hilang sendiri saat isolate didaur ulang, jadi tidak perlu dibersihkan.
+ */
+const TTL_ARTIKEL_MS = 5 * 60 * 1000;
+const TTL_KERANGKA_MS = 10 * 60 * 1000;
+
+interface Singgahan<T> { nilai: T; kedaluwarsa: number }
+
+const cacheArtikel = new Map<string, Singgahan<Artikel | null>>();
+const cacheKerangka = new Map<string, Singgahan<string>>();
+
+function ambilCache<T>(peta: Map<string, Singgahan<T>>, kunci: string): T | undefined {
+  const isi = peta.get(kunci);
+  if (!isi) return undefined;
+  if (Date.now() > isi.kedaluwarsa) {
+    peta.delete(kunci);
+    return undefined;
+  }
+  return isi.nilai;
+}
+
+function simpanCache<T>(peta: Map<string, Singgahan<T>>, kunci: string, nilai: T, ttl: number): void {
+  // Batas kasar supaya isolate yang berumur panjang tidak menumpuk entri.
+  if (peta.size > 200) peta.clear();
+  peta.set(kunci, { nilai, kedaluwarsa: Date.now() + ttl });
+}
+
+/**
+ * fetch dengan batas waktu. Pembaca tidak boleh menunggu Firestore yang lambat:
+ * lewat batas ini, halaman tetap dikirim apa adanya dengan meta bawaan.
+ */
+async function fetchBerbatas(input: string, ms: number): Promise<Response> {
+  const kendali = new AbortController();
+  const jam = setTimeout(() => kendali.abort(), ms);
+  try {
+    return await fetch(input, { signal: kendali.signal });
+  } finally {
+    clearTimeout(jam);
+  }
+}
+
+interface Artikel {
+  title: string; excerpt: string; imageUrl: string; category: string;
+  content: string; author: string; createdAt: string; status: string;
+}
+
+async function fetchArticle(articleId: string): Promise<Artikel | null> {
+  const tersimpan = ambilCache(cacheArtikel, articleId);
+  if (tersimpan !== undefined) return tersimpan;
+
   const url =
     `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}` +
     `/databases/${FIRESTORE_DATABASE_ID}/documents/articles/${encodeURIComponent(articleId)}`;
 
-  const res = await fetch(url);
-  if (!res.ok) return null;
+  const res = await fetchBerbatas(url, 1500);
+  if (!res.ok) {
+    // Artikel yang memang tidak ada ikut disinggahkan sebentar, supaya alamat
+    // salah yang di-spam tidak terus-menerus memukul Firestore.
+    if (res.status === 404) simpanCache(cacheArtikel, articleId, null, 60 * 1000);
+    return null;
+  }
 
   const doc = await res.json();
   const fields = doc.fields ?? {};
 
-  return {
+  const artikel: Artikel = {
     title: stripFirestoreValue(fields.title) ?? SITE_NAME,
     excerpt: stripFirestoreValue(fields.excerpt) ?? 'Berita Terupdate & Terpercaya',
     imageUrl: stripFirestoreValue(fields.imageUrl) ?? DEFAULT_IMAGE,
@@ -132,6 +192,94 @@ async function fetchArticle(articleId: string) {
     createdAt: stripFirestoreValue(fields.createdAt) ?? '',
     status: stripFirestoreValue(fields.status) ?? 'Published',
   };
+
+  simpanCache(cacheArtikel, articleId, artikel, TTL_ARTIKEL_MS);
+  return artikel;
+}
+
+/**
+ * Kerangka SPA (dist/index.html) yang nanti disuntik meta-nya. Diambil sekali
+ * lalu disinggahkan — isinya cuma berubah saat ada deploy baru.
+ */
+async function ambilKerangka(origin: string): Promise<string | null> {
+  const tersimpan = ambilCache(cacheKerangka, origin);
+  if (tersimpan !== undefined) return tersimpan;
+
+  const res = await fetchBerbatas(`${origin}/index.html`, 1500);
+  if (!res.ok) return null;
+
+  const html = await res.text();
+  simpanCache(cacheKerangka, origin, html, TTL_KERANGKA_MS);
+  return html;
+}
+
+/**
+ * Ganti meta bawaan di <head> kerangka dengan meta milik artikel.
+ *
+ * Yang lama dibuang lebih dulu — kalau dibiarkan, halaman punya dua og:title
+ * dan pengambil data bisa memilih yang salah. Sisa isi <head> (favicon, RSS,
+ * theme-color) dan seluruh <body> tidak disentuh, jadi aplikasi React tetap
+ * berjalan persis seperti biasa untuk pembaca.
+ */
+function suntikMeta(kerangka: string, artikel: Artikel, url: string, origin: string): string {
+  const gambarAsli = artikel.imageUrl || `${origin}/og-default.jpg`;
+  const { url: gambar, width, height } = toWhatsAppFriendlyImage(gambarAsli);
+  const tanggal = artikel.createdAt
+    ? new Date(artikel.createdAt).toISOString()
+    : new Date().toISOString();
+
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: artikel.title.slice(0, 110),
+    description: artikel.excerpt,
+    image: gambarAsli ? [gambarAsli] : undefined,
+    datePublished: tanggal,
+    dateModified: tanggal,
+    author: { '@type': 'Person', name: artikel.author },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      logo: { '@type': 'ImageObject', url: `${origin}/logo-icon-512.png` },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    articleSection: artikel.category,
+  }).replace(/</g, '\\u003c');
+
+  const blok = `
+<title>${escapeHtml(artikel.title)} - ${SITE_NAME}</title>
+<meta name="description" content="${escapeHtml(artikel.excerpt)}" />
+<link rel="canonical" href="${escapeHtml(url)}" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="${SITE_NAME}" />
+<meta property="og:title" content="${escapeHtml(artikel.title)}" />
+<meta property="og:description" content="${escapeHtml(artikel.excerpt)}" />
+<meta property="og:image" content="${escapeHtml(gambar)}" />
+<meta property="og:image:secure_url" content="${escapeHtml(gambar)}" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="${width}" />
+<meta property="og:image:height" content="${height}" />
+<meta property="og:image:alt" content="${escapeHtml(artikel.title)}" />
+<meta property="og:url" content="${escapeHtml(url)}" />
+<meta property="article:published_time" content="${escapeHtml(tanggal)}" />
+${artikel.category ? `<meta property="article:section" content="${escapeHtml(artikel.category)}" />` : ''}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${escapeHtml(artikel.title)}" />
+<meta name="twitter:description" content="${escapeHtml(artikel.excerpt)}" />
+<meta name="twitter:image" content="${escapeHtml(gambar)}" />
+<script type="application/ld+json">${jsonLd}</script>
+`;
+
+  const bersih = kerangka
+    .replace(/<title>[\s\S]*?<\/title>/i, '')
+    .replace(/<meta\s+name="description"[^>]*>/gi, '')
+    .replace(/<meta\s+property="og:[^"]*"[^>]*>/gi, '')
+    .replace(/<meta\s+name="twitter:[^"]*"[^>]*>/gi, '')
+    .replace(/<link\s+rel="canonical"[^>]*>/gi, '');
+
+  return bersih.includes('</head>')
+    ? bersih.replace('</head>', `${blok}</head>`)
+    : blok + bersih;
 }
 
 function renderHtml(opts: {
@@ -296,11 +444,6 @@ export default async function middleware(request: Request) {
   const perayapPencari = SEARCH_BOT_REGEX.test(ua);
   const perayapSosial = SOCIAL_BOT_REGEX.test(ua);
 
-  // Pengunjung biasa tidak disentuh — langsung diteruskan ke aplikasi React.
-  if (!perayapPencari && !perayapSosial) {
-    return; // undefined return = continue to the next handler / static file
-  }
-
   const url = new URL(request.url);
 
   /*
@@ -313,6 +456,57 @@ export default async function middleware(request: Request) {
   const origin = url.origin;
 
   const match = url.pathname.match(/^\/(?:berita|artikel)\/([^/]+)/);
+
+  /*
+   * Pengunjung biasa — termasuk pengambil data yang tidak mengaku sebagai bot.
+   *
+   * Dulu semua yang bukan bot dilewatkan begitu saja, jadi mereka menerima
+   * index.html dengan meta halaman depan: judul "SekilasUpdate.com - Berita
+   * Terupdate & Terpercaya" dan gambar og-default.jpg, berita apa pun yang
+   * dibuka. Itu yang bikin fitur "tarik data" di situs lain dan perayap AI
+   * (GPTBot, ClaudeBot, PerplexityBot, dan siapa pun yang belum terdaftar di
+   * regex mana pun) selalu dapat data yang salah.
+   *
+   * Sekarang halaman artikel dikirim ulang dengan meta yang benar disuntikkan
+   * ke <head>-nya, sementara <body> dan skrip React-nya tetap utuh. Jadi
+   * pembaca tetap mendapat aplikasi yang sama, bukan halaman statis.
+   */
+  if (!perayapPencari && !perayapSosial) {
+    if (!match) return;                       // beranda & halaman lain: meta bawaan sudah benar
+    if (request.method !== 'GET') return;     // POST/HEAD tidak perlu disentuh
+    // Hanya permintaan dokumen HTML. Permintaan aset dan fetch() dari aplikasi
+    // memakai Accept lain, dan tidak boleh ikut diproses.
+    if (!(request.headers.get('accept') || '').includes('text/html')) return;
+
+    try {
+      const segmen = decodeURIComponent(match[1]);
+      const potong = segmen.lastIndexOf('--');
+      const id = potong === -1 ? segmen : segmen.slice(potong + 2);
+
+      const [kerangka, artikel] = await Promise.all([
+        ambilKerangka(url.origin),
+        fetchArticle(id),
+      ]);
+
+      // Gagal ambil salah satunya (Firestore mati, artikel tidak ada, lewat
+      // batas waktu) — halaman tetap tampil normal dengan meta bawaan.
+      if (!kerangka || !artikel || artikel.status !== 'Published') return;
+
+      return new Response(suntikMeta(kerangka, artikel, url.toString(), url.origin), {
+        status: 200,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          // Disimpan di CDN Vercel, jadi pembaca berikutnya tidak menunggu
+          // Firestore sama sekali; versi lama masih boleh disajikan sebentar
+          // sambil diperbarui di latar belakang.
+          'cache-control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+          'x-og': 'artikel',
+        },
+      });
+    } catch {
+      return; // apa pun yang gagal: jangan ganggu pembaca
+    }
+  }
 
   // Bukan halaman artikel (beranda, halaman statis, halaman tag) — sajikan
   // preview tingkat situs dengan gambar dan alamat yang benar-benar hidup.

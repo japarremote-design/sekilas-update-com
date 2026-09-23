@@ -1,27 +1,55 @@
-PERBAIKAN KATA KUNCI + TOMBOL "SALIN UNTUK OPTIMASI" — SekilasUpdate.com
-========================================================================
+UNTUK PROJECT: SekilasUpdate.com
+PERBAIKAN META PRATINJAU HALAMAN ARTIKEL
+========================================
 
-Paket ini SUDAH MENCAKUP perbaikan kata kunci sebelumnya. Kalau paket
-perbaikan-kata-kunci-seo.zip belum sempat dipasang, cukup pasang yang ini.
+Cuma SATU berkas yang berubah:
+  middleware.ts   (di akar project, sejajar package.json)
 
-Ekstrak dari AKAR PROJECT (sejajar package.json), timpa yang lama:
-  src/lib/seo.ts                         kata kunci bisa banyak, dipisah koma
-  src/components/SeoPanel.tsx            + tombol "Salin untuk Optimasi"
-  src/components/ArticleEditorModal.tsx  cuma tambah 1 baris (kategori ikut disalin)
-
+Ekstrak dari AKAR PROJECT, timpa yang lama.
 Lalu: npm run lint -> git add -A -> git commit -> git push. Vercel deploy otomatis.
 
-CARA PAKAI TOMBOL SALIN
-  Buka Tulis/Edit Berita. Di panel Skor SEO (di atas tombol simpan) ada
-  tombol "Salin untuk Optimasi". Klik, lalu tempel (paste) ke chat AI.
+MASALAHNYA APA
+  Middleware lama cuma menyuntik meta artikel untuk daftar bot tertentu
+  (WhatsApp, Facebook, Googlebot, dll). Semua pengambil data lain — fitur
+  "tarik data" di situs notaris, GPTBot, ClaudeBot, PerplexityBot, dan siapa
+  pun yang tidak terdaftar — dilewatkan begitu saja, jadi mereka membaca
+  index.html dengan meta halaman depan.
 
-  Yang tersalin:
-  - kalimat perintah singkat (jangan ubah kutipan, jangan tambah fakta)
-  - Judul, Kata Kunci, Kategori, Ringkasan, Isi Berita, Tag
-  - status gambar utama
-  - skor + semua pemeriksaan (MERAH/ORANYE/KUNING/HIJAU) + angka statistik
+YANG BERUBAH
+  Halaman /berita/* dan /artikel/* sekarang dikirim ke SEMUA pengunjung dengan
+  meta artikel yang benar disuntik ke <head>: title, description, canonical,
+  og:*, twitter:*, article:published_time, dan JSON-LD NewsArticle.
+  <body> dan skrip React tidak disentuh, jadi pembaca tetap dapat aplikasi
+  yang sama seperti biasa.
 
-KATA KUNCI
-  Boleh beberapa frasa dipisah koma. Frasa PALING DEPAN = kata kunci utama.
+  Meta lama (title, description, og:*, twitter:*, canonical) dibuang dulu
+  supaya tidak ada tag ganda.
 
-Tidak ada perubahan database, aturan Firestore, atau environment variable.
+KECEPATAN
+  - Data artikel & kerangka index.html disinggahkan di isolate edge
+    (artikel 5 menit, kerangka 10 menit).
+  - Balasan diberi Cache-Control s-maxage=600, stale-while-revalidate=86400,
+    jadi disimpan juga di CDN Vercel.
+  - Permintaan ke Firestore dibatasi 1,5 detik.
+
+KALAU GAGAL
+  Firestore mati, lewat batas waktu, artikel tidak ada, atau statusnya belum
+  Published -> middleware diam, halaman tampil normal dengan meta bawaan.
+  Tidak ada halaman error.
+
+TIDAK BERUBAH
+  Jalur WhatsApp/Facebook dan jalur Googlebot masih sama persis seperti
+  sebelumnya. Kredensial tetap hanya di Environment Variables Vercel
+  (VITE_FIREBASE_PROJECT_ID, SITE_URL) — tidak ada yang ditulis ke berkas.
+
+CARA CEK SETELAH DEPLOY
+  1. Buka di browser biasa, klik kanan -> View Page Source (bukan Inspect),
+     cari og:title. Harus berisi judul artikel.
+  2. Atau lewat terminal:
+
+     curl -s -A "Mozilla/5.0" -H "accept: text/html" \
+       "https://sekilasupdate.com/berita/pt-manggala-teknologi-indonesia-diresmikan-di-kabupaten-malang--86iHqFOPzThYe9B21kdV" \
+       | grep -E 'og:(title|image|url)'
+
+  3. Tes ulang fitur "tarik data" di admin zerlindarizky.vercel.app.
+  4. Bagikan link ke WhatsApp, pastikan kartu pratinjaunya masih benar.
