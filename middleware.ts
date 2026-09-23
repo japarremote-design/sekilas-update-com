@@ -455,6 +455,13 @@ export default async function middleware(request: Request) {
    */
   const origin = url.origin;
 
+  /*
+   * Alamat resmi halaman: tanpa query. Link yang dibagikan sering membawa
+   * ?fbclid= atau ?utm_source=, dan kalau itu ikut jadi canonical/og:url,
+   * satu berita bisa terbaca sebagai beberapa halaman yang berbeda.
+   */
+  const urlBersih = `${url.origin}${url.pathname}`;
+
   const match = url.pathname.match(/^\/(?:berita|artikel)\/([^/]+)/);
 
   /*
@@ -474,9 +481,16 @@ export default async function middleware(request: Request) {
   if (!perayapPencari && !perayapSosial) {
     if (!match) return;                       // beranda & halaman lain: meta bawaan sudah benar
     if (request.method !== 'GET') return;     // POST/HEAD tidak perlu disentuh
-    // Hanya permintaan dokumen HTML. Permintaan aset dan fetch() dari aplikasi
-    // memakai Accept lain, dan tidak boleh ikut diproses.
-    if (!(request.headers.get('accept') || '').includes('text/html')) return;
+    /*
+     * Header Accept sengaja TIDAK dipakai sebagai syarat.
+     *
+     * Banyak pengambil data mengirim "Accept: *" tanpa menyebut text/html —
+     * itu bawaan fetch() di Node, curl, dan sebagian perayap AI. Kalau mereka
+     * disaring di sini, merekalah yang justru tetap menerima meta halaman
+     * depan, padahal merekalah alasan perbaikan ini dibuat. Semua alamat
+     * /berita/* dan /artikel/* memang halaman HTML, jadi tidak ada yang perlu
+     * disaring.
+     */
 
     try {
       const segmen = decodeURIComponent(match[1]);
@@ -492,13 +506,19 @@ export default async function middleware(request: Request) {
       // batas waktu) — halaman tetap tampil normal dengan meta bawaan.
       if (!kerangka || !artikel || artikel.status !== 'Published') return;
 
-      return new Response(suntikMeta(kerangka, artikel, url.toString(), url.origin), {
+      return new Response(suntikMeta(kerangka, artikel, urlBersih, url.origin), {
         status: 200,
         headers: {
           'content-type': 'text/html; charset=utf-8',
-          // Disimpan di CDN Vercel, jadi pembaca berikutnya tidak menunggu
-          // Firestore sama sekali; versi lama masih boleh disajikan sebentar
-          // sambil diperbarui di latar belakang.
+          /*
+           * Catatan jujur soal cache: middleware selalu dijalankan lebih dulu
+           * untuk setiap permintaan yang cocok dengan matcher, jadi balasan
+           * yang dibuat di sini BELUM TENTU disimpan di CDN Vercel — header
+           * di bawah tidak bisa diandalkan sebagai penghemat. Yang benar-benar
+           * bekerja adalah singgahan di isolate (cacheArtikel & cacheKerangka)
+           * di atas. Header tetap dipasang karena tidak merugikan dan berguna
+           * untuk perantara lain, tapi jangan dihitung sebagai jaminan.
+           */
           'cache-control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
           'x-og': 'artikel',
         },
@@ -511,6 +531,15 @@ export default async function middleware(request: Request) {
   // Bukan halaman artikel (beranda, halaman statis, halaman tag) — sajikan
   // preview tingkat situs dengan gambar dan alamat yang benar-benar hidup.
   if (!match) {
+    /*
+     * Hanya perayap SOSIAL yang boleh menerima kartu pratinjau ini: isinya
+     * <body> kosong dengan meta-refresh, yang memang cukup untuk menyusun
+     * kartu WhatsApp. Perayap mesin pencari justru rusak kalau diberi halaman
+     * seperti itu — beranda, /halaman/*, dan /tag/* akan terbaca kosong. Untuk
+     * mereka, biarkan aplikasi React yang asli yang disajikan.
+     */
+    if (!perayapSosial) return;
+
     const html = renderHtml({
       // Judul ditulis lengkap dengan nama merek: inilah teks tebal yang muncul
       // di kartu WhatsApp. renderHtml tidak akan menempelkan nama situs lagi
@@ -523,7 +552,7 @@ export default async function middleware(request: Request) {
       image: `${origin}/og-default.jpg`,
       imageWidth: 1200,
       imageHeight: 630,
-      url: url.toString(),
+      url: urlBersih,
     });
 
     return new Response(html, {
@@ -566,7 +595,7 @@ export default async function middleware(request: Request) {
     // judul, baris penulis, dan seluruh paragraf beritanya.
     if (perayapPencari) {
       return new Response(
-        renderArticleForSearch({ article, url: url.toString(), origin }),
+        renderArticleForSearch({ article, url: urlBersih, origin }),
         {
           status: 200,
           headers: {
@@ -588,7 +617,7 @@ export default async function middleware(request: Request) {
       image: ogImage,
       imageWidth: width,
       imageHeight: height,
-      url: url.toString(),
+      url: urlBersih,
     });
 
     return new Response(html, {
