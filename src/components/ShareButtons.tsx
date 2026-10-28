@@ -15,6 +15,8 @@ import { Link2, Check } from 'lucide-react';
 interface ShareButtonsProps {
   url: string;
   title: string;
+  /** Ukuran lebih kecil (32px) untuk dipasang di baris meta berita. */
+  compact?: boolean;
 }
 
 const WhatsAppIcon = () => (
@@ -35,8 +37,9 @@ const XIcon = () => (
   </svg>
 );
 
-export const ShareButtons: React.FC<ShareButtonsProps> = ({ url, title }) => {
+export const ShareButtons: React.FC<ShareButtonsProps> = ({ url, title, compact = false }) => {
   const [copied, setCopied] = useState(false);
+  const ukuran = compact ? 'w-8 h-8' : 'w-9 h-9';
 
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
@@ -83,7 +86,7 @@ export const ShareButtons: React.FC<ShareButtonsProps> = ({ url, title }) => {
           rel="noopener noreferrer"
           title={`Bagikan ke ${t.label}`}
           aria-label={`Bagikan ke ${t.label}`}
-          className={`${t.className} text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors active:scale-95`}
+          className={`${t.className} text-white ${ukuran} rounded-full flex items-center justify-center transition-colors active:scale-95`}
         >
           {t.icon}
         </a>
@@ -93,7 +96,7 @@ export const ShareButtons: React.FC<ShareButtonsProps> = ({ url, title }) => {
         onClick={copyLink}
         title="Salin tautan"
         aria-label="Salin tautan"
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors active:scale-95 ${
+        className={`${ukuran} rounded-full flex items-center justify-center transition-colors active:scale-95 ${
           copied ? 'bg-emerald-500 text-white' : 'bg-slate-200 hover:bg-slate-300 text-[#141B34]'
         }`}
       >

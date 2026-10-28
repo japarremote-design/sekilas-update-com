@@ -1,0 +1,28 @@
+UNTUK PROJECT: SekilasUpdate.com
+MERAPIKAN TAMPILAN STATISTIK DAN TOMBOL BAGIKAN
+================================================
+
+Berkas yang berubah (ekstrak dari AKAR PROJECT, timpa yang lama):
+  src/lib/tampilan.ts                  BARU, saklar TAMPILKAN_STATISTIK_PEMBACA
+  src/components/HeroSection.tsx
+  src/components/ArticleDetail.tsx
+  src/components/ShareButtons.tsx
+
+Lalu: npm run lint -> git add -A -> git commit -> git push.
+
+APA YANG BERUBAH
+  1. Kartu headline beranda: "Pembaca" dan "Suka" disembunyikan.
+  2. Halaman berita, baris meta: "menit baca" dan "Pembaca" disembunyikan.
+     Tanggal dan jam tetap tampil.
+  3. Halaman berita, bar tag: tombol "Suka" disembunyikan. "Simpan" tetap.
+  4. Tombol bagikan (WhatsApp, Facebook, X, salin tautan) pindah dari bar tag
+     ke sisi kanan baris meta. Ukurannya 32px (ShareButtons punya prop baru
+     "compact", bawaannya tetap 36px).
+
+YANG TIDAK BERUBAH
+  Penghitung pembaca dan suka tetap berjalan dan tetap menulis ke Firestore.
+  Yang disembunyikan hanya tampilannya. Untuk menampilkan lagi, ubah
+  TAMPILKAN_STATISTIK_PEMBACA di src/lib/tampilan.ts menjadi true.
+
+BELUM DISENTUH (masih menampilkan jumlah pembaca)
+  CategoryGrid.tsx, Sidebar.tsx, SearchOverlay.tsx.

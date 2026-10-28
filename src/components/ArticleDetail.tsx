@@ -6,6 +6,7 @@ import { Article, UserProfile } from '../types';
 import { KilatMark } from './KilatMark';
 import { ShareButtons } from './ShareButtons';
 import { readingMinutes } from '../lib/slug';
+import { TAMPILKAN_STATISTIK_PEMBACA } from '../lib/tampilan';
 import { renderTeks, renderParagraf, pecahDateline } from '../lib/teks';
 import { isAdmin } from '../lib/admin';
 import { Comments } from './Comments';
@@ -285,13 +286,19 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-[#141B34]" /> {readingMinutes(article.content)} menit baca
-            </span>
-            <span className="flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5 text-amber-600" /> {article.views + 1} Pembaca
-            </span>
+          <div className="flex items-center gap-3 ml-auto">
+            {TAMPILKAN_STATISTIK_PEMBACA && (
+              <>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[#141B34]" /> {readingMinutes(article.content)} menit baca
+                </span>
+                <span className="flex items-center gap-1">
+                  <Eye className="w-3.5 h-3.5 text-amber-600" /> {article.views + 1} Pembaca
+                </span>
+              </>
+            )}
+            {/* Tombol bagikan menempati tempat "menit baca" dan "Pembaca". */}
+            <ShareButtons url={shareUrl} title={article.title} compact />
           </div>
         </div>
       </header>
@@ -360,17 +367,19 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <button
-            onClick={handleLike}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
-              hasLiked 
-                ? 'bg-rose-50 text-rose-600 border-rose-200' 
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-rose-50 hover:text-rose-600'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${hasLiked ? 'fill-rose-600' : ''}`} />
-            <span>{likesCount} Suka</span>
-          </button>
+          {TAMPILKAN_STATISTIK_PEMBACA && (
+            <button
+              onClick={handleLike}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                hasLiked
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-rose-50 hover:text-rose-600'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${hasLiked ? 'fill-rose-600' : ''}`} />
+              <span>{likesCount} Suka</span>
+            </button>
+          )}
 
           <button
             onClick={handleToggleBookmark}
@@ -383,8 +392,6 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({
             {isBookmarked ? <BookmarkCheck className="w-4 h-4 text-[#E30F2A]" /> : <Bookmark className="w-4 h-4" />}
             <span>{isBookmarked ? 'Tersimpan' : 'Simpan'}</span>
           </button>
-
-          <ShareButtons url={shareUrl} title={article.title} />
         </div>
       </div>
 

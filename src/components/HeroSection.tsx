@@ -1,6 +1,7 @@
 import React from 'react';
 import { Eye, Heart, Clock, ChevronRight } from 'lucide-react';
 import { Article } from '../types';
+import { TAMPILKAN_STATISTIK_PEMBACA } from '../lib/tampilan';
 
 interface HeroSectionProps {
   article: Article;
@@ -45,12 +46,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ article, onSelectArtic
           <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs text-gray-300 font-medium">
             <div className="flex items-center gap-4">
               <span>Oleh: <strong className="text-white">{article.author}</strong></span>
-              <span className="flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-amber-400" /> {article.views} Pembaca
-              </span>
-              <span className="flex items-center gap-1">
-                <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" /> {article.likes} Suka
-              </span>
+              {TAMPILKAN_STATISTIK_PEMBACA && (
+                <>
+                  <span className="flex items-center gap-1">
+                    <Eye className="w-3.5 h-3.5 text-amber-400" /> {article.views} Pembaca
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" /> {article.likes} Suka
+                  </span>
+                </>
+              )}
             </div>
 
             <span className="hidden sm:flex items-center gap-1 text-[#E30F2A] font-bold group-hover:translate-x-1 transition-transform">
