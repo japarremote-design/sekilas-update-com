@@ -1,6 +1,6 @@
 UNTUK PROJECT: SekilasUpdate.com
 MERAPIKAN TAMPILAN STATISTIK DAN TOMBOL BAGIKAN
-===============================================
+================================================
 
 Berkas yang berubah (ekstrak dari AKAR PROJECT, timpa yang lama):
   src/lib/tampilan.ts                  BARU, saklar TAMPILKAN_STATISTIK_PEMBACA
