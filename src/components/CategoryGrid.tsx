@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Eye, Heart, ExternalLink } from 'lucide-react';
+import { Heart, ExternalLink } from 'lucide-react';
 import { Article, CategoryType } from '../types';
 
 interface CategoryGridProps {
@@ -10,6 +10,28 @@ interface CategoryGridProps {
   onSelectCategory: (category: CategoryType) => void;
 }
 
+const NAMA_BULAN = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+/**
+ * Tanggal terbit berformat "Bulan Tanggal, Tahun" (zona WIB),
+ * mis. "November 5, 2026". Dipakai di baris meta kartu berita.
+ */
+const formatTanggalRedaksi = (waktu: string | number | Date): string => {
+  const tanggal = new Date(waktu);
+  if (isNaN(tanggal.getTime())) return '';
+  const bagian = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  }).formatToParts(tanggal);
+  const ambil = (jenis: string) => Number(bagian.find(b => b.type === jenis)?.value);
+  return `${NAMA_BULAN[ambil('month') - 1]} ${ambil('day')}, ${ambil('year')}`;
+};
+
 export const CategoryGrid: React.FC<CategoryGridProps> = ({
   articles,
   categories,
@@ -19,7 +41,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 }) => {
   // Filter out hero article if viewing 'Semua' so it doesn't duplicate
   const heroArticle = articles.find(a => a.isHero) || articles[0];
-  const mainArticles = selectedCategory === 'Semua' 
+  const mainArticles = selectedCategory === 'Semua'
     ? articles.filter(a => a.id !== heroArticle?.id)
     : articles.filter(a => a.category === selectedCategory);
 
@@ -61,7 +83,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                   // Alternative card styling for Hukum & Kriminal category or featured layout
                   if (category === 'Hukum' && idx % 2 === 0) {
                     return (
-                      <article 
+                      <article
                         key={article.id}
                         onClick={() => onSelectArticle(article)}
                         className="flex gap-4 group cursor-pointer border p-3 rounded-lg bg-slate-50/80 hover:bg-slate-100/80 border-slate-200 transition-all hover:shadow-sm"
@@ -82,14 +104,10 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                           <p className="text-sm text-gray-600 line-clamp-2 leading-snug mb-2">
                             {article.excerpt}
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 font-mono">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {new Date(article.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye className="w-3 h-3 text-amber-600" /> {article.views}
-                            </span>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                            <span className="font-semibold text-[#141B34]">Redaksi</span>
+                            <span>•</span>
+                            <span>{formatTanggalRedaksi(article.createdAt)}</span>
                           </div>
                         </div>
                       </article>
@@ -98,7 +116,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
                   if (category === 'Politik' || category === 'Opini') {
                     return (
-                      <article 
+                      <article
                         key={article.id}
                         onClick={() => onSelectArticle(article)}
                         className="group cursor-pointer border border-slate-100 rounded-lg overflow-hidden hover:shadow-md transition-all p-2.5 bg-slate-50/50"
@@ -106,10 +124,10 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                         <div className="relative h-44 w-full mb-3 overflow-hidden rounded-md bg-slate-200">
                           <img
             loading="lazy"
-            decoding="async" 
-                            src={article.imageUrl} 
+            decoding="async"
+                            src={article.imageUrl}
                             alt={article.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           {category === 'Opini' && (
                             <div className="absolute top-2 left-2 bg-[#141B34] text-white px-2 py-0.5 text-[10px] font-bold rounded shadow-sm">
@@ -135,17 +153,17 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
                   // Standard Article Card
                   return (
-                    <article 
+                    <article
                       key={article.id}
                       onClick={() => onSelectArticle(article)}
                       className="flex gap-3.5 group cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                       <img
             loading="lazy"
-            decoding="async" 
-                        src={article.imageUrl} 
+            decoding="async"
+                        src={article.imageUrl}
                         alt={article.title}
-                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-slate-200 shadow-sm group-hover:scale-105 transition-transform" 
+                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-slate-200 shadow-sm group-hover:scale-105 transition-transform"
                       />
                       <div className="flex flex-col justify-between flex-grow">
                         <div>
@@ -156,13 +174,10 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                             {article.excerpt}
                           </p>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 font-mono mt-2">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-[#E30F2A]" />
-                            {new Date(article.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                          </span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 font-mono mt-2">
+                          <span className="font-semibold text-[#141B34]">Redaksi</span>
                           <span>•</span>
-                          <span>{article.views} Pembaca</span>
+                          <span>{formatTanggalRedaksi(article.createdAt)}</span>
                         </div>
                       </div>
                     </article>
