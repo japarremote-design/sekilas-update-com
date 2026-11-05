@@ -1,5 +1,5 @@
 PANEL SKOR SEO — SekilasUpdate.com
-==================================
+===================================
 
 Ini BUKAN project utuh, hanya berkas yang berubah. Sengaja begitu supaya
 suntingan om sendiri (terutama src/lib/admin.ts) tidak ikut tertimpa.
