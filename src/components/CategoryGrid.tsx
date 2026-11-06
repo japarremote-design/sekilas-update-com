@@ -135,7 +135,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
             decoding="async"
                             src={article.imageUrl}
                             alt={article.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                           />
                           {category === 'Opini' && (
                             <div className="absolute top-2 left-2 bg-[#141B34] text-white px-2 py-0.5 text-[10px] font-bold rounded shadow-sm">

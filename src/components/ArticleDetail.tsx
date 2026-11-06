@@ -313,7 +313,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({
             decoding="async"
             src={article.imageUrl}
             alt={article.title}
-            className="w-full h-auto max-h-[480px] object-cover"
+            className="w-full h-auto max-h-[480px] object-cover object-top"
           />
         </div>
         {article.imageCaption && (
