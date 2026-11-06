@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Article, CategoryType } from '../types';
 
 interface CategoryGridProps {
@@ -31,6 +31,19 @@ const formatTanggalRedaksi = (waktu: string | number | Date): string => {
   const ambil = (jenis: string) => Number(bagian.find(b => b.type === jenis)?.value);
   return `${NAMA_BULAN[ambil('month') - 1]} ${ambil('day')}, ${ambil('year')}`;
 };
+
+/**
+ * Baris meta kartu: "Redaksi • Bulan Tanggal, Tahun" dalam SATU baris.
+ * whitespace-nowrap mencegahnya patah jadi dua baris di kolom sempit,
+ * jadi baris ini harus diletakkan selebar kartu, bukan di kolom teks sempit.
+ */
+const MetaRedaksi: React.FC<{ waktu: string | number | Date }> = ({ waktu }) => (
+  <p className="text-xs text-gray-500 font-mono whitespace-nowrap">
+    <span className="font-semibold text-[#141B34]">Redaksi</span>
+    {' • '}
+    {formatTanggalRedaksi(waktu)}
+  </p>
+);
 
 export const CategoryGrid: React.FC<CategoryGridProps> = ({
   articles,
@@ -86,29 +99,24 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                       <article
                         key={article.id}
                         onClick={() => onSelectArticle(article)}
-                        className="flex gap-4 group cursor-pointer border p-3 rounded-lg bg-slate-50/80 hover:bg-slate-100/80 border-slate-200 transition-all hover:shadow-sm"
+                        className="group cursor-pointer border p-3 rounded-lg bg-slate-50/80 hover:bg-slate-100/80 border-slate-200 transition-all hover:shadow-sm"
                       >
-                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-[#141B34]/10">
-                          <img
+                        <div className="flex gap-4">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-[#141B34]/10">
+                            <img
             loading="lazy"
             decoding="async"
-                            src={article.imageUrl}
-                            alt={article.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-grow">
-                          <h3 className="font-bold text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-2 leading-snug mb-1">
+                              src={article.imageUrl}
+                              alt={article.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <h3 className="flex-grow min-w-0 self-start font-bold text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-3 leading-snug">
                             {article.title}
                           </h3>
-                          <p className="text-sm text-gray-600 line-clamp-2 leading-snug mb-2">
-                            {article.excerpt}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
-                            <span className="font-semibold text-[#141B34]">Redaksi</span>
-                            <span>•</span>
-                            <span>{formatTanggalRedaksi(article.createdAt)}</span>
-                          </div>
+                        </div>
+                        <div className="mt-2.5">
+                          <MetaRedaksi waktu={article.createdAt} />
                         </div>
                       </article>
                     );
@@ -135,17 +143,11 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                             </div>
                           )}
                         </div>
-                        <h3 className="font-bold text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-2 mb-1.5 leading-snug">
+                        <h3 className="font-bold text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-3 mb-2.5 leading-snug">
                           {article.title}
                         </h3>
-                        <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                          {article.excerpt}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 font-mono pt-1 border-t border-slate-100">
-                          <span>{new Date(article.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                          <span className="flex items-center gap-1 text-rose-500">
-                            <Heart className="w-3 h-3 fill-rose-500/20" /> {article.likes}
-                          </span>
+                        <div className="pt-2 border-t border-slate-100">
+                          <MetaRedaksi waktu={article.createdAt} />
                         </div>
                       </article>
                     );
@@ -156,29 +158,22 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                     <article
                       key={article.id}
                       onClick={() => onSelectArticle(article)}
-                      className="flex gap-3.5 group cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="group cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors"
                     >
-                      <img
+                      <div className="flex gap-3.5">
+                        <img
             loading="lazy"
             decoding="async"
-                        src={article.imageUrl}
-                        alt={article.title}
-                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-slate-200 shadow-sm group-hover:scale-105 transition-transform"
-                      />
-                      <div className="flex flex-col justify-between flex-grow">
-                        <div>
-                          <h3 className="font-bold text-sm sm:text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-2 leading-snug mb-1">
-                            {article.title}
-                          </h3>
-                          <p className="text-xs text-gray-600 line-clamp-2 hidden sm:block">
-                            {article.excerpt}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 font-mono mt-2">
-                          <span className="font-semibold text-[#141B34]">Redaksi</span>
-                          <span>•</span>
-                          <span>{formatTanggalRedaksi(article.createdAt)}</span>
-                        </div>
+                          src={article.imageUrl}
+                          alt={article.title}
+                          className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-slate-200 shadow-sm group-hover:scale-105 transition-transform"
+                        />
+                        <h3 className="flex-grow min-w-0 self-start font-bold text-sm sm:text-base text-gray-900 group-hover:text-[#141B34] transition-colors line-clamp-4 leading-snug">
+                          {article.title}
+                        </h3>
+                      </div>
+                      <div className="mt-2">
+                        <MetaRedaksi waktu={article.createdAt} />
                       </div>
                     </article>
                   );

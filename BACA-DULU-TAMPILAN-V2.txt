@@ -1,0 +1,25 @@
+UNTUK PROJECT: SekilasUpdate.com
+TAMPILAN BARIS META: "Redaksi" MENGGANTIKAN JUMLAH PEMBACA
+=========================================================
+
+Berkas yang berubah (ekstrak dari AKAR PROJECT, timpa yang lama):
+  src/components/CategoryGrid.tsx
+  src/components/Sidebar.tsx
+  src/components/SearchOverlay.tsx
+
+Lalu: npm run lint -> git add -A -> git commit -> git push.
+
+APA YANG BERUBAH
+  1. Kartu berita di beranda (semua varian: biasa, Politik/Opini, Hukum):
+     - Ringkasan dihapus, tinggal judul (maksimal 3-4 baris).
+     - Baris meta jadi SATU baris: "Redaksi • Bulan Tanggal, Tahun",
+       mis. "Redaksi • Oktober 2, 2026". Tanggal memakai zona WIB.
+     - Baris meta kini selebar kartu (di bawah gambar), jadi tidak patah
+       dua baris di kolom sempit.
+     - Jumlah suka di kartu Politik/Opini ikut dihapus.
+  2. Terpopuler (sidebar): "43 Pembaca • Daerah" jadi "Redaksi • Daerah".
+  3. Hasil pencarian: angka pembaca diganti tulisan "Redaksi".
+
+Sidebar dan hasil pencarian mengikuti saklar TAMPILKAN_STATISTIK_PEMBACA di
+src/lib/tampilan.ts. Kalau suatu saat diubah ke true, jumlah pembaca muncul
+lagi di dua tempat itu. Penghitung pembaca tetap berjalan di Firestore.

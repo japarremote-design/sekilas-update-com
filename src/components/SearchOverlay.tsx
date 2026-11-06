@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, X, Calendar, Eye, ChevronRight } from 'lucide-react';
 import { Article } from '../types';
+import { TAMPILKAN_STATISTIK_PEMBACA } from '../lib/tampilan';
 
 interface SearchOverlayProps {
   /** true selagi kumpulan berita untuk pencarian sedang diambil. */
@@ -131,9 +132,13 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({
                       <Calendar className="w-3 h-3" />
                       {new Date(art.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3 text-amber-600" /> {art.views}
-                    </span>
+                    {TAMPILKAN_STATISTIK_PEMBACA ? (
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3 text-amber-600" /> {art.views}
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-[#141B34]">Redaksi</span>
+                    )}
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#E30F2A] self-center flex-shrink-0" />

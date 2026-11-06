@@ -2,6 +2,7 @@ import React from 'react';
 import { TrendingUp, BookOpen } from 'lucide-react';
 import { Article } from '../types';
 import { AdBanner } from './AdBanner';
+import { TAMPILKAN_STATISTIK_PEMBACA } from '../lib/tampilan';
 
 interface SidebarProps {
   articles: Article[];
@@ -49,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ articles, onSelectArticle }) =
                   {article.title}
                 </h4>
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
-                  {article.views} Pembaca • {article.category}
+                  {TAMPILKAN_STATISTIK_PEMBACA ? `${article.views} Pembaca` : 'Redaksi'} • {article.category}
                 </p>
               </div>
             </li>
