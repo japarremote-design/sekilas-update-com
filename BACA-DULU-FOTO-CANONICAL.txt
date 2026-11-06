@@ -1,0 +1,20 @@
+UNTUK PROJECT: SekilasUpdate.com
+
+Berkas yang berubah (ekstrak dari AKAR PROJECT, sejajar package.json, timpa yang lama):
+  middleware.ts                       alamat berita yang slug-nya sudah lama dialihkan 301
+                                      ke alamat resmi; canonical selalu alamat resmi
+  src/components/ArticleDetail.tsx    foto utama fokus ke atas (kepala tidak terpotong)
+  src/components/HeroSection.tsx      sama, untuk headline
+  src/components/CategoryGrid.tsx     sama, untuk kartu lebar Politik/Opini
+                                      (sudah memuat tampilan "Redaksi + tanggal" v2)
+
+Kalau zip sekilasupdate-tampilan-v2 belum dipasang, pasang juga (Sidebar.tsx dan
+SearchOverlay.tsx ada di sana).
+
+SETELAH EKSTRAK
+  1. npm run lint
+  2. git add -A && git commit && git push   (dari akun GitHub yang tersambung ke Vercel)
+  3. Tunggu deploy "Ready", lalu buka sekilasupdate.com/sitemap.xml:
+     pastikan berita Lumajang ikut tercantum, lalu kirim ulang sitemap di Search Console.
+
+Tidak ada environment variable baru.

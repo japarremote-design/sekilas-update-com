@@ -157,6 +157,54 @@ async function fetchBerbatas(input: string, ms: number): Promise<Response> {
   }
 }
 
+/**
+ * Alamat resmi sebuah berita: /berita/{slug-judul}--{id}.
+ *
+ * Harus SAMA PERSIS dengan src/lib/slug.ts dan api/_firestore.js. Slug dibuat
+ * dari judul, jadi kalau judul diganti redaksi, alamat resminya ikut berganti.
+ * Alamat lama tetap bisa dibuka — ID di ujungnya yang menentukan beritanya —
+ * tapi harus dialihkan (301) ke alamat resmi, supaya satu berita tidak terbaca
+ * Google sebagai dua halaman yang berbeda.
+ */
+function slugifyTitle(title: string): string {
+  return String(title)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 80)
+    .replace(/-$/, '');
+}
+
+function segmenResmi(title: string, id: string): string {
+  const slug = slugifyTitle(title);
+  return slug ? `${slug}--${id}` : id;
+}
+
+/**
+ * Kalau alamat /berita/... yang diminta bukan alamat resminya (slug lama
+ * setelah judul diganti), kembalikan balasan 301 ke alamat resmi. Alamat lama
+ * /artikel/{id} tidak dialihkan: itu bentuk lama yang masih dipakai apa adanya.
+ */
+function alihkanKeResmi(
+  url: URL,
+  segmenDiminta: string,
+  artikel: { title: string },
+  id: string
+): Response | null {
+  if (!url.pathname.startsWith('/berita/')) return null;
+  const resmi = segmenResmi(artikel.title, id);
+  if (segmenDiminta === resmi) return null;
+  return new Response(null, {
+    status: 301,
+    headers: {
+      location: `${url.origin}/berita/${resmi}${url.search}`,
+      'cache-control': 'public, max-age=0, s-maxage=300',
+    },
+  });
+}
+
 interface Artikel {
   title: string; excerpt: string; imageUrl: string; category: string;
   content: string; author: string; createdAt: string; status: string;
@@ -506,7 +554,11 @@ export default async function middleware(request: Request) {
       // batas waktu) — halaman tetap tampil normal dengan meta bawaan.
       if (!kerangka || !artikel || artikel.status !== 'Published') return;
 
-      return new Response(suntikMeta(kerangka, artikel, urlBersih, url.origin), {
+      const alih = alihkanKeResmi(url, segmen, artikel, id);
+      if (alih) return alih;
+
+      const urlResmi = `${url.origin}/berita/${segmenResmi(artikel.title, id)}`;
+      return new Response(suntikMeta(kerangka, artikel, urlResmi, url.origin), {
         status: 200,
         headers: {
           'content-type': 'text/html; charset=utf-8',
@@ -591,11 +643,17 @@ export default async function middleware(request: Request) {
       return new Response('Not Found', { status: 404 });
     }
 
+    // Slug lama (judul sudah diganti) dialihkan ke alamat resmi; selebihnya
+    // canonical selalu menunjuk alamat resmi, bukan alamat yang kebetulan diminta.
+    const alih = alihkanKeResmi(url, segmen, article, articleId);
+    if (alih) return alih;
+    const urlResmi = `${origin}/berita/${segmenResmi(article.title, articleId)}`;
+
     // Perayap mesin pencari mendapat halaman berisi artikel sungguhan —
     // judul, baris penulis, dan seluruh paragraf beritanya.
     if (perayapPencari) {
       return new Response(
-        renderArticleForSearch({ article, url: urlBersih, origin }),
+        renderArticleForSearch({ article, url: urlResmi, origin }),
         {
           status: 200,
           headers: {
@@ -617,7 +675,7 @@ export default async function middleware(request: Request) {
       image: ogImage,
       imageWidth: width,
       imageHeight: height,
-      url: urlBersih,
+      url: urlResmi,
     });
 
     return new Response(html, {
