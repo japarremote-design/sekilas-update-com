@@ -105,3 +105,30 @@ export async function fetchPublishedArticles(limit = 500) {
     })
     .filter(a => a.isActive && a.title);
 }
+
+/**
+ * Ambil SATU berita lewat id — dipakai untuk memeriksa berita sebelum diping ke
+ * mesin pencari. Mengembalikan null kalau tidak ada. `updateTime` adalah waktu
+ * dokumen terakhir diubah menurut Firestore sendiri (bukan klaim dari klien).
+ */
+export async function fetchArticleById(id) {
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}` +
+    `/databases/${DATABASE_ID}/documents/articles/${encodeURIComponent(id)}`;
+
+  const res = await fetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Firestore menolak permintaan: ${res.status} ${await res.text()}`);
+  }
+
+  const dokumen = await res.json();
+  const f = dokumen.fields ?? {};
+  return {
+    id,
+    title: nilai(f.title) ?? '',
+    status: nilai(f.status) ?? 'Published',
+    isActive: f.isActive?.booleanValue !== false,
+    updateTime: dokumen.updateTime ?? '',
+  };
+}

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, Plus, Newspaper, Pencil, Eye, EyeOff, Wand2, Loader2 } from 'lucide-react';
+import { X, Plus, Newspaper, Pencil, Eye, EyeOff, Wand2, Loader2, Search, Check } from 'lucide-react';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Article } from '../types';
+import { statusOf } from '../lib/roles';
+import { salinLinkDanBukaSearchConsole } from '../lib/indexing';
 
 interface ArticleManagerModalProps {
   isOpen: boolean;
@@ -20,8 +22,21 @@ export const ArticleManagerModal: React.FC<ArticleManagerModalProps> = ({
   onEdit,
 }) => {
   const [isFixingAuthor, setIsFixingAuthor] = useState(false);
+  // Berita yang link-nya baru saja disalin lewat tombol "Percepat di Google".
+  const [tersalinId, setTersalinId] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handlePercepatGoogle = async (article: Article) => {
+    const { alamat, tersalin } = await salinLinkDanBukaSearchConsole(article);
+    if (tersalin) {
+      setTersalinId(article.id);
+      setTimeout(() => setTersalinId(prev => (prev === article.id ? null : prev)), 6000);
+    } else {
+      // Peramban menolak menyalin otomatis — tampilkan link supaya bisa disalin manual.
+      window.prompt('Salin link berita ini, lalu tempel di Search Console:', alamat);
+    }
+  };
 
   const OLD_AUTHOR = 'Redaksi PASEK.ID';
   const NEW_AUTHOR = 'Redaksi SekilasUpdate.com';
@@ -142,6 +157,12 @@ export const ArticleManagerModal: React.FC<ArticleManagerModalProps> = ({
                       }`}>
                         {active ? 'Aktif Tayang' : 'Nonaktif'}
                       </span>
+                      {tersalinId === article.id && (
+                        <p className="mt-1 text-[11px] text-emerald-600 leading-snug">
+                          Link tersalin. Tempel di kolom "Inspect any URL" di Search Console,
+                          lalu klik Request indexing.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
                       <button
@@ -162,6 +183,19 @@ export const ArticleManagerModal: React.FC<ArticleManagerModalProps> = ({
                       >
                         {active ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
+                      {active && statusOf(article) === 'Published' && (
+                        <button
+                          onClick={() => handlePercepatGoogle(article)}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            tersalinId === article.id
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white'
+                          }`}
+                          title="Percepat di Google: salin link berita lalu buka Search Console"
+                        >
+                          {tersalinId === article.id ? <Check className="w-3.5 h-3.5" /> : <Search className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

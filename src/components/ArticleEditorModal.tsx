@@ -11,6 +11,7 @@ import {
   NewsroomUser,
 } from '../types';
 import { allowedStatuses, statusOf } from '../lib/roles';
+import { kirimIndexNow } from '../lib/indexing';
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -120,6 +121,8 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
 
       const defaultImg = imageUrl.trim() || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
 
+      let idTersimpan = articleToEdit?.id ?? '';
+
       if (articleToEdit) {
         // Edit existing article in Firestore
         const ref = doc(db, 'articles', articleToEdit.id);
@@ -163,8 +166,13 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           isActive,
           status
         };
-        await addDoc(collection(db, 'articles'), newArt);
+        const ref = await addDoc(collection(db, 'articles'), newArt);
+        idTersimpan = ref.id;
       }
+
+      // Berita yang tayang diberitahukan ke mesin pencari (IndexNow) di belakang
+      // layar — tidak ditunggu, dan gagal pun tidak mengganggu penerbitan.
+      if (status === 'Published' && isActive) kirimIndexNow(idTersimpan);
 
       onSaved();
       onClose();

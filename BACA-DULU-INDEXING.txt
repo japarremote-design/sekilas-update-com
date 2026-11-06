@@ -1,0 +1,24 @@
+UNTUK PROJECT: SekilasUpdate.com
+
+FITUR INDEXING (aman, tidak ada env var baru)
+  1. Ping IndexNow otomatis ke Bing/Yandex/dll tiap berita Published disimpan.
+     Google TIDAK ikut protokol ini.
+  2. Tombol kaca pembesar "Percepat di Google" di daftar berita Ruang Redaksi:
+     menyalin link berita lalu membuka Search Console; tinggal tempel di
+     "Inspect any URL" dan klik Request indexing.
+
+Berkas (ekstrak dari AKAR PROJECT, sejajar package.json, timpa yang lama):
+  api/indexnow.js                              BARU  titik ping, dijaga berlapis
+  api/_firestore.js                            + fungsi fetchArticleById (sitemap & RSS tidak berubah)
+  public/2fcc7853ebcaca431fc0f7c53fce2020.txt  BARU  kunci IndexNow (memang publik)
+  src/lib/indexing.ts                          BARU
+  src/components/ArticleEditorModal.tsx        + ping setelah simpan (3 baris)
+  src/components/ArticleManagerModal.tsx       + tombol Percepat di Google
+
+JANGAN hapus berkas .txt itu: mesin pencari memakainya untuk memastikan situs ini milik kita.
+
+SETELAH EKSTRAK
+  1. npm run lint
+  2. git add -A && git commit && git push
+  3. Setelah deploy Ready, buka sekilasupdate.com/2fcc7853ebcaca431fc0f7c53fce2020.txt
+     -> harus tampil teks kunci itu saja.
